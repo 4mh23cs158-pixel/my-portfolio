@@ -2,17 +2,32 @@ import os
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Request
-from passlib.context import CryptContext
+from pydantic import BaseModel
+
+
+# ==========================================
+# LOAD ENVIRONMENT VARIABLES
+# ==========================================
 
 load_dotenv()
+
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto"
-)
+
+# ==========================================
+# LOGIN REQUEST SCHEMA
+# ==========================================
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+# ==========================================
+# ROUTER
+# ==========================================
 
 router = APIRouter(
     prefix="/api/auth",
@@ -20,24 +35,34 @@ router = APIRouter(
 )
 
 
+# ==========================================
+# LOGIN
+# ==========================================
+
 @router.post("/login")
 def login(
-    request: Request,
-    username: str,
-    password: str
+    login_data: LoginRequest,
+    request: Request
 ):
+
+    # Check whether admin credentials exist
     if not ADMIN_USERNAME or not ADMIN_PASSWORD:
         raise HTTPException(
             status_code=500,
             detail="Admin credentials are not configured"
         )
 
-    if username != ADMIN_USERNAME or password != ADMIN_PASSWORD:
+    # Validate credentials
+    if (
+        login_data.username != ADMIN_USERNAME
+        or login_data.password != ADMIN_PASSWORD
+    ):
         raise HTTPException(
             status_code=401,
             detail="Invalid username or password"
         )
 
+    # Create admin session
     request.session["admin"] = True
 
     return {
@@ -45,8 +70,33 @@ def login(
     }
 
 
+# ==========================================
+# AUTH STATUS
+# ==========================================
+
+@router.get("/status")
+def auth_status(
+    request: Request
+):
+
+    is_admin = request.session.get(
+        "admin",
+        False
+    )
+
+    return {
+        "logged_in": bool(is_admin)
+    }
+
+
+# ==========================================
+# LOGOUT
+# ==========================================
+
 @router.post("/logout")
-def logout(request: Request):
+def logout(
+    request: Request
+):
 
     request.session.clear()
 

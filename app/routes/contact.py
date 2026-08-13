@@ -80,6 +80,8 @@ async def send_contact_message(
 
     email_message["To"] = email_to
 
+    email_message["Reply-To"] = contact.email
+
     email_message["Subject"] = (
         f"Portfolio Contact: {contact.name}"
     )
