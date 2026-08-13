@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.database import Base, engine
@@ -17,6 +18,10 @@ from app.routes.certifications import (
     router as certifications_router
 )
 
+from app.routes.contact import (
+    router as contact_router
+)
+
 
 # ==========================================
 # LOAD ENVIRONMENT VARIABLES
@@ -25,13 +30,9 @@ from app.routes.certifications import (
 load_dotenv()
 
 
-SESSION_SECRET = os.getenv(
-    "SESSION_SECRET"
-)
-
+SESSION_SECRET = os.getenv("SESSION_SECRET")
 
 if not SESSION_SECRET:
-
     raise ValueError(
         "SESSION_SECRET is not set in the .env file"
     )
@@ -41,9 +42,7 @@ if not SESSION_SECRET:
 # CREATE DATABASE TABLES
 # ==========================================
 
-Base.metadata.create_all(
-    bind=engine
-)
+Base.metadata.create_all(bind=engine)
 
 
 # ==========================================
@@ -51,14 +50,29 @@ Base.metadata.create_all(
 # ==========================================
 
 app = FastAPI(
-
     title="My Portfolio API",
-
-    description=(
-        "Backend API for my personal portfolio"
-    ),
-
+    description="Backend API for my personal portfolio",
     version="1.0.0"
+)
+
+
+# ==========================================
+# CORS
+# ==========================================
+
+app.add_middleware(
+    CORSMiddleware,
+
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ],
+
+    allow_credentials=True,
+
+    allow_methods=["*"],
+
+    allow_headers=["*"],
 )
 
 
@@ -67,7 +81,6 @@ app = FastAPI(
 # ==========================================
 
 app.add_middleware(
-
     SessionMiddleware,
 
     secret_key=SESSION_SECRET,
@@ -82,17 +95,13 @@ app.add_middleware(
 # REGISTER ROUTES
 # ==========================================
 
-app.include_router(
-    auth_router
-)
+app.include_router(auth_router)
 
-app.include_router(
-    projects_router
-)
+app.include_router(projects_router)
 
-app.include_router(
-    certifications_router
-)
+app.include_router(certifications_router)
+
+app.include_router(contact_router)
 
 
 # ==========================================
@@ -103,9 +112,7 @@ app.include_router(
 def home():
 
     return {
-        "message": (
-            "Portfolio Backend is running!"
-        )
+        "message": "Portfolio Backend is running!"
     }
 
 
