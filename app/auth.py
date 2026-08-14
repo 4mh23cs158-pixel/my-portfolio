@@ -100,4 +100,6 @@ def logout(
 
     request.session.clear()
 
-    
+    return {
+        "message": "Logged out successfully"
+    }
