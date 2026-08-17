@@ -26,22 +26,6 @@ router = APIRouter(
 
 
 # =========================================================
-# RESEND CONFIGURATION
-# =========================================================
-
-RESEND_API_KEY = os.getenv("RESEND_API_KEY")
-EMAIL_TO = os.getenv("EMAIL_TO")
-
-# For testing, Resend provides this sender.
-# Later, you can replace it with an address from your
-# verified domain.
-EMAIL_FROM = os.getenv(
-    "EMAIL_FROM",
-    "Portfolio <onboarding@resend.dev>"
-)
-
-
-# =========================================================
 # CONTACT REQUEST SCHEMA
 # =========================================================
 
@@ -52,6 +36,19 @@ class ContactRequest(BaseModel):
 
 
 # =========================================================
+# RESEND CONFIGURATION
+# =========================================================
+
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+EMAIL_TO = os.getenv("EMAIL_TO")
+
+EMAIL_FROM = os.getenv(
+    "EMAIL_FROM",
+    "Portfolio <onboarding@resend.dev>"
+)
+
+
+# =========================================================
 # SEND CONTACT MESSAGE
 # =========================================================
 
@@ -59,7 +56,7 @@ class ContactRequest(BaseModel):
 async def send_contact_message(contact: ContactRequest):
 
     # -----------------------------------------------------
-    # CHECK RESEND CONFIGURATION
+    # CHECK CONFIGURATION
     # -----------------------------------------------------
 
     if not RESEND_API_KEY:
@@ -67,7 +64,7 @@ async def send_contact_message(contact: ContactRequest):
 
         raise HTTPException(
             status_code=500,
-            detail="Email service is not configured"
+            detail="RESEND_API_KEY is not configured"
         )
 
     if not EMAIL_TO:
@@ -75,7 +72,7 @@ async def send_contact_message(contact: ContactRequest):
 
         raise HTTPException(
             status_code=500,
-            detail="Email recipient is not configured"
+            detail="EMAIL_TO is not configured"
         )
 
     # -----------------------------------------------------
@@ -85,18 +82,23 @@ async def send_contact_message(contact: ContactRequest):
     resend.api_key = RESEND_API_KEY
 
     # -----------------------------------------------------
-    # ESCAPE USER INPUT FOR HTML EMAIL
+    # CLEAN USER INPUT
     # -----------------------------------------------------
 
     safe_name = html.escape(contact.name)
     safe_email = html.escape(str(contact.email))
     safe_message = html.escape(contact.message)
 
+    formatted_message = safe_message.replace(
+        "\n",
+        "<br>"
+    )
+
     # -----------------------------------------------------
-    # CREATE EMAIL
+    # EMAIL PARAMETERS
     # -----------------------------------------------------
 
-    params: resend.Emails.SendParams = {
+    params = {
         "from": EMAIL_FROM,
         "to": [EMAIL_TO],
         "reply_to": [str(contact.email)],
@@ -104,6 +106,7 @@ async def send_contact_message(contact: ContactRequest):
         "html": f"""
         <html>
             <body>
+
                 <h2>New Portfolio Contact Message</h2>
 
                 <p>
@@ -121,50 +124,51 @@ async def send_contact_message(contact: ContactRequest):
                 </p>
 
                 <p>
-                    {safe_message.replace(chr(10), "<br>")}
+                    {formatted_message}
                 </p>
 
                 <hr>
 
                 <p>
-                    This message was sent from your portfolio contact form.
+                    This message was sent from your portfolio website.
                 </p>
+
             </body>
         </html>
         """
     }
 
     # -----------------------------------------------------
-    # SEND EMAIL USING RESEND
+    # SEND EMAIL
     # -----------------------------------------------------
 
     try:
 
-        print("Attempting to send email through Resend...")
+        print("====================================")
+        print("Attempting to send email through Resend")
         print("Email From:", EMAIL_FROM)
         print("Email To:", EMAIL_TO)
+        print("====================================")
 
-        email = await resend.Emails.send_async(params)
+        response = await resend.Emails.send_async(params)
 
-        print("Email sent successfully!")
-        print("Resend response:", email)
+        print("====================================")
+        print("RESEND SUCCESS")
+        print(response)
+        print("====================================")
+
+        return {
+            "message": "Your message has been sent successfully!"
+        }
 
     except Exception as error:
 
-         print("====================================")
-         print("RESEND EMAIL ERROR:")
-         print(repr(error))
-         print("====================================")
+        print("====================================")
+        print("RESEND EMAIL ERROR")
+        print(repr(error))
+        print("====================================")
 
-    raise HTTPException(
-        status_code=500,
-        detail=f"Resend error: {str(error)}"
-    )
-
-    # -----------------------------------------------------
-    # SUCCESS RESPONSE
-    # -----------------------------------------------------
-
-    return {
-        "message": "Your message has been sent successfully!"
-    }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Resend error: {str(error)}"
+        )
