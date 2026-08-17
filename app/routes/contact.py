@@ -151,15 +151,15 @@ async def send_contact_message(contact: ContactRequest):
 
     except Exception as error:
 
-        print(
-            "RESEND EMAIL ERROR:",
-            repr(error)
-        )
+         print("====================================")
+         print("RESEND EMAIL ERROR:")
+         print(repr(error))
+         print("====================================")
 
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to send email"
-        )
+    raise HTTPException(
+        status_code=500,
+        detail=f"Resend error: {str(error)}"
+    )
 
     # -----------------------------------------------------
     # SUCCESS RESPONSE
