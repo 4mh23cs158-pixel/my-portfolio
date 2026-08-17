@@ -40,23 +40,24 @@ async def send_contact_message(
     contact: ContactRequest
 ):
 
-    email_host = (os.getenv("EMAIL_HOST") or "").strip()
+    email_host = os.getenv("EMAIL_HOST")
 
-    try:
-        email_port = int(
-            (os.getenv("EMAIL_PORT") or "587").strip()
-        )
-    except ValueError:
-        raise HTTPException(
-            status_code=500,
-            detail="EMAIL_PORT is invalid"
-        )
+    email_port = int(
+        os.getenv("EMAIL_PORT", "587")
+    )
 
-    email_username = (os.getenv("EMAIL_USERNAME") or "").strip()
+    email_username = os.getenv(
+        "EMAIL_USERNAME"
+    )
 
-    email_password = (os.getenv("EMAIL_PASSWORD") or "").replace(" ", "").strip()
+    email_password = os.getenv(
+        "EMAIL_PASSWORD"
+    )
 
-    email_to = (os.getenv("EMAIL_TO") or "").strip()
+    email_to = os.getenv(
+        "EMAIL_TO"
+    )
+
 
     # Check email configuration
     if not all([
@@ -125,13 +126,12 @@ Message:
 
         print(
             "Email sending error:",
-            type(error).__name__,
             error
         )
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to send email. Check your SMTP credentials and deployment environment."
+            detail="Failed to send email"
         )
 
 
