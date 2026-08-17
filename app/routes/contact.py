@@ -1,11 +1,11 @@
 import os
+import html
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, EmailStr
-from email.message import EmailMessage
 
-import aiosmtplib
+import resend
 
 
 # =========================================================
@@ -22,6 +22,22 @@ load_dotenv()
 router = APIRouter(
     prefix="/api/contact",
     tags=["Contact"]
+)
+
+
+# =========================================================
+# RESEND CONFIGURATION
+# =========================================================
+
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+EMAIL_TO = os.getenv("EMAIL_TO")
+
+# For testing, Resend provides this sender.
+# Later, you can replace it with an address from your
+# verified domain.
+EMAIL_FROM = os.getenv(
+    "EMAIL_FROM",
+    "Portfolio <onboarding@resend.dev>"
 )
 
 
@@ -43,147 +59,110 @@ class ContactRequest(BaseModel):
 async def send_contact_message(contact: ContactRequest):
 
     # -----------------------------------------------------
-    # READ EMAIL CONFIGURATION
+    # CHECK RESEND CONFIGURATION
     # -----------------------------------------------------
 
-    email_host = os.getenv("EMAIL_HOST")
-    email_port_string = os.getenv("EMAIL_PORT", "587")
-    email_username = os.getenv("EMAIL_USERNAME")
-    email_password = os.getenv("EMAIL_PASSWORD")
-    email_to = os.getenv("EMAIL_TO")
-
-    # -----------------------------------------------------
-    # VALIDATE PORT
-    # -----------------------------------------------------
-
-    try:
-        email_port = int(email_port_string)
-    except ValueError:
-        raise HTTPException(
-            status_code=500,
-            detail="EMAIL_PORT must be a valid number"
-        )
-
-    # -----------------------------------------------------
-    # CHECK EMAIL CONFIGURATION
-    # -----------------------------------------------------
-
-    missing_variables = []
-
-    if not email_host:
-        missing_variables.append("EMAIL_HOST")
-
-    if not email_username:
-        missing_variables.append("EMAIL_USERNAME")
-
-    if not email_password:
-        missing_variables.append("EMAIL_PASSWORD")
-
-    if not email_to:
-        missing_variables.append("EMAIL_TO")
-
-    if missing_variables:
-
-        print(
-            "Missing email environment variables:",
-            ", ".join(missing_variables)
-        )
+    if not RESEND_API_KEY:
+        print("ERROR: RESEND_API_KEY is missing")
 
         raise HTTPException(
             status_code=500,
-            detail="Email service is not configured correctly"
+            detail="Email service is not configured"
         )
+
+    if not EMAIL_TO:
+        print("ERROR: EMAIL_TO is missing")
+
+        raise HTTPException(
+            status_code=500,
+            detail="Email recipient is not configured"
+        )
+
+    # -----------------------------------------------------
+    # SET RESEND API KEY
+    # -----------------------------------------------------
+
+    resend.api_key = RESEND_API_KEY
+
+    # -----------------------------------------------------
+    # ESCAPE USER INPUT FOR HTML EMAIL
+    # -----------------------------------------------------
+
+    safe_name = html.escape(contact.name)
+    safe_email = html.escape(str(contact.email))
+    safe_message = html.escape(contact.message)
 
     # -----------------------------------------------------
     # CREATE EMAIL
     # -----------------------------------------------------
 
-    email_message = EmailMessage()
+    params: resend.Emails.SendParams = {
+        "from": EMAIL_FROM,
+        "to": [EMAIL_TO],
+        "reply_to": [str(contact.email)],
+        "subject": f"Portfolio Contact: {contact.name}",
+        "html": f"""
+        <html>
+            <body>
+                <h2>New Portfolio Contact Message</h2>
 
-    email_message["From"] = email_username
-    email_message["To"] = email_to
-    email_message["Reply-To"] = contact.email
-    email_message["Subject"] = (
-        f"Portfolio Contact: {contact.name}"
-    )
+                <p>
+                    <strong>Name:</strong>
+                    {safe_name}
+                </p>
 
-    email_message.set_content(
-        f"""
-You received a new message from your portfolio.
+                <p>
+                    <strong>Email:</strong>
+                    {safe_email}
+                </p>
 
-Name:
-{contact.name}
+                <p>
+                    <strong>Message:</strong>
+                </p>
 
-Email:
-{contact.email}
+                <p>
+                    {safe_message.replace(chr(10), "<br>")}
+                </p>
 
-Message:
-{contact.message}
-"""
-    )
+                <hr>
+
+                <p>
+                    This message was sent from your portfolio contact form.
+                </p>
+            </body>
+        </html>
+        """
+    }
 
     # -----------------------------------------------------
-    # SEND EMAIL
+    # SEND EMAIL USING RESEND
     # -----------------------------------------------------
 
     try:
 
-        print("Attempting to send email...")
-        print("SMTP Host:", email_host)
-        print("SMTP Port:", email_port)
-        print("SMTP Username:", email_username)
-        print("Email To:", email_to)
+        print("Attempting to send email through Resend...")
+        print("Email From:", EMAIL_FROM)
+        print("Email To:", EMAIL_TO)
 
-        await aiosmtplib.send(
-            email_message,
-            hostname=email_host,
-            port=email_port,
-            start_tls=True,
-            username=email_username,
-            password=email_password,
-            timeout=30
-        )
+        email = await resend.Emails.send_async(params)
 
         print("Email sent successfully!")
-
-    except aiosmtplib.SMTPAuthenticationError as error:
-
-        print("SMTP AUTHENTICATION ERROR:", repr(error))
-
-        raise HTTPException(
-            status_code=500,
-            detail="Email authentication failed. Check EMAIL_USERNAME and EMAIL_PASSWORD."
-        )
-
-    except aiosmtplib.SMTPConnectError as error:
-
-        print("SMTP CONNECTION ERROR:", repr(error))
-
-        raise HTTPException(
-            status_code=500,
-            detail="Could not connect to the email server."
-        )
-
-    except aiosmtplib.SMTPException as error:
-
-        print("SMTP ERROR:", repr(error))
-
-        raise HTTPException(
-            status_code=500,
-            detail="SMTP email service error."
-        )
+        print("Resend response:", email)
 
     except Exception as error:
 
-        print("UNEXPECTED EMAIL ERROR:", repr(error))
+        print(
+            "RESEND EMAIL ERROR:",
+            repr(error)
+        )
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to send email."
+            detail="Failed to send email"
         )
 
     # -----------------------------------------------------
-    # SUCCESS
+    # SUCCESS RESPONSE
     # -----------------------------------------------------
 
     return {
