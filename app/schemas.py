@@ -48,3 +48,10 @@ class CertificationCreate(BaseModel):
     image_url: Optional[str] = None
 
 
+class CertificationResponse(CertificationCreate):
+
+    id: int
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
