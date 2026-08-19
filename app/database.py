@@ -29,7 +29,7 @@ SessionLocal = sessionmaker(
 )
 
 # Base class for SQLAlchemy models
-B
+Base = declarative_base()
 
 
 # Database dependency
