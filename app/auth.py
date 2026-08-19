@@ -95,11 +95,4 @@ def auth_status(
 
 @router.post("/logout")
 def logout(
-    request: Request
-):
-
-    request.session.clear()
-
-    return {
-        "message": "Logged out successfully"
-    }
+ 
