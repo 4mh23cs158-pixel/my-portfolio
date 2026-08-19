@@ -96,7 +96,11 @@ app.add_middleware(
 # REGISTER ROUTES
 # ==========================================
 
-app.include_router(authuter)
+app.include_router(auth_router)
+
+app.include_router(projects_router)
+
+app.include_router(certifications_router)
 
 app.include_router(contact_router)
 
