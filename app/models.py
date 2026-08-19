@@ -12,7 +12,11 @@ class Project(Base):
 
     description = Column(Text, nullable=False)
 
-    able=True)
+    technologies = Column(String(500), nullable=False)
+
+    github_url = Column(String(500), nullable=True)
+
+    deployed_url = Column(String(500), nullable=True)
 
     image_url = Column(String(500), nullable=True)
 
